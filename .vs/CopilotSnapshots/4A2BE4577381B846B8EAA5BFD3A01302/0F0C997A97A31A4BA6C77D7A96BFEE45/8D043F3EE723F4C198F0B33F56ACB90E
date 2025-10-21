@@ -1,0 +1,47 @@
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using SignalR_Test_2.ChatHub; // namespace containing the ChatHub class
+using SignalR_Test_2.Interface;
+using SignalR_Test_2.Models;
+using ChatHubClass = SignalR_Test_2.ChatHub.ChatHub; // alias to refer to the ChatHub class when a namespace with the same name exists
+
+namespace SignalR_Test_2.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    public class ChatController : ControllerBase
+    {
+        private readonly IHubContext<ChatHubClass, IChatClient> _hubContext;
+
+        private static readonly List<ChatMessage> Messages = new();
+
+        public ChatController(IHubContext<ChatHubClass, IChatClient> hubContext)
+        {
+            _hubContext = hubContext;
+        }
+
+        // ✅ Test: Send message to all users
+        [HttpPost("send")]
+        public async Task<IActionResult> SendMessage([FromBody] ChatMessage message)
+        {
+            Messages.Add(message);
+            await _hubContext.Clients.All.ReceiveMessage(message.FromUser, message.Message);
+            return Ok(new { Status = "Message sent", message });
+        }
+
+        // ✅ Test: Get all sent messages
+        [HttpGet("all")]
+        public IActionResult GetAllMessages()
+        {
+            return Ok(Messages);
+        }
+
+        // ✅ Test: Get connected users
+        [HttpGet("users")]
+        public IActionResult GetConnectedUsers()
+        {
+            var users = ChatHubClass.GetConnectedUsers().Values;
+            return Ok(users);
+        }
+    }
+}

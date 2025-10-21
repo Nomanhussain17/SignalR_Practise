@@ -1,0 +1,12 @@
+﻿namespace SignalR_Test_2.Interface
+{
+    public interface IChatClient
+    {
+        Task ReceiveMessage(string user, string message);
+        Task NotifyNewUser(string username);
+        Task UserTyping(string username);
+        Task UserStoppedTyping(string username);
+        Task ReceiveReaction(string messageId, string fromUser, string emoji);
+
+    }
+}
