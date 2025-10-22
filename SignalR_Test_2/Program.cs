@@ -12,7 +12,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.WithOrigins("http://localhost:3000")
+        policy.WithOrigins("http://localhost:3002")
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials(); // REQUIRED for SignalR
@@ -32,14 +32,14 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.MapHub<ChatHub>("/chatHub");
+app.UseCors("AllowAll");
 
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
 
-app.MapControllers();
+app.MapHub<ChatHub>("/chatHub");
 
-app.UseCors("AllowAll");
+app.MapControllers();
 
 app.Run();

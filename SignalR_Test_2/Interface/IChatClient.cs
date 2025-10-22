@@ -2,11 +2,12 @@
 {
     public interface IChatClient
     {
-        Task ReceiveMessage(string user, string message);
+        Task ReceiveMessage(string user, string message, string messageId);
         Task NotifyNewUser(string username);
         Task UserTyping(string username);
         Task UserStoppedTyping(string username);
         Task ReceiveReaction(string messageId, string fromUser, string emoji);
+        Task MessageSeen(string messageId, string seenByUser);
 
     }
 }

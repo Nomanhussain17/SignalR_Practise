@@ -33,3 +33,4 @@ C:\Users\_SYED\Desktop\SignalR_Test_2\SignalR_Test_2\obj\Debug\net8.0\refint\Sig
 C:\Users\_SYED\Desktop\SignalR_Test_2\SignalR_Test_2\obj\Debug\net8.0\SignalR_Test_2.pdb
 C:\Users\_SYED\Desktop\SignalR_Test_2\SignalR_Test_2\obj\Debug\net8.0\SignalR_Test_2.genruntimeconfig.cache
 C:\Users\_SYED\Desktop\SignalR_Test_2\SignalR_Test_2\obj\Debug\net8.0\ref\SignalR_Test_2.dll
+C:\Users\_SYED\Desktop\SignalR_Test_2\SignalR_Test_2\obj\Debug\net8.0\SignalR_Test_2.sourcelink.json

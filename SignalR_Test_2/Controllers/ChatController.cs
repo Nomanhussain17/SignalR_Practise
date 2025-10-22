@@ -25,7 +25,8 @@ namespace SignalR_Test_2.Controllers
         public async Task<IActionResult> SendMessage([FromBody] ChatMessage message)
         {
             Messages.Add(message);
-            await _hubContext.Clients.All.ReceiveMessage(message.FromUser, message.Message);
+            string messageId = System.Guid.NewGuid().ToString(); // Generate an ID
+            await _hubContext.Clients.All.ReceiveMessage(message.FromUser, message.Message, messageId);
             return Ok(new { Status = "Message sent", message });
         }
 

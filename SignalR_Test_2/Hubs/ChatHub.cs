@@ -25,15 +25,15 @@ namespace SignalR_Test_2.Hubs
         {
             if (ConnectedUsers.TryRemove(Context.ConnectionId, out var username))
             {
-                await Clients.All.ReceiveMessage("System", $"{username} left the chat");
+                await Clients.All.ReceiveMessage("System", $"{username} left the chat", System.Guid.NewGuid().ToString());
             }
 
             await base.OnDisconnectedAsync(exception);
         }
 
-        public async Task SendMessage(string fromUser, string message)
+        public async Task SendMessage(string fromUser, string message, string messageId)
         {
-            await Clients.Others.ReceiveMessage(fromUser, message);
+            await Clients.Others.ReceiveMessage(fromUser, message, messageId);
         }
 
         public async Task Typing(string username)
@@ -50,6 +50,11 @@ namespace SignalR_Test_2.Hubs
         {
             // Broadcast to everyone (except the sender)
             await Clients.Others.ReceiveReaction(messageId, fromUser, emoji);
+        }
+
+        public async Task MarkMessageAsSeen(string messageId, string seenByUser)
+        {
+            await Clients.All.MessageSeen(messageId, seenByUser);
         }
 
         public static ConcurrentDictionary<string, string> GetConnectedUsers()
