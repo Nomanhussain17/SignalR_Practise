@@ -41,7 +41,7 @@ namespace SignalR_Test_2.Controllers
         [HttpGet("users")]
         public IActionResult GetConnectedUsers()
         {
-            var users = ChatHub.GetConnectedUsers().Values;
+            var users = ChatHub.GetAllConnectedUsers();
             return Ok(users);
         }
     }

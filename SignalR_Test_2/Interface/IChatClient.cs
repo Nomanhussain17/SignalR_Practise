@@ -8,6 +8,6 @@
         Task UserStoppedTyping(string username);
         Task ReceiveReaction(string messageId, string fromUser, string emoji);
         Task MessageSeen(string messageId, string seenByUser);
-
+        Task UpdateUserList(List<string> users);
     }
 }

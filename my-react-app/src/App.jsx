@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import * as signalR from '@microsoft/signalr';
 import { Send, Users, LogOut, Smile, Check, CheckCheck } from 'lucide-react';
 
@@ -11,10 +11,13 @@ const ChatApp = () => {
   const [connection, setConnection] = useState(null);
   const [typingUsers, setTypingUsers] = useState([]);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [showEmojiPicker, setShowEmojiPicker] = useState(null);
   const typingTimeoutRef = useRef(null);
   const messagesEndRef = useRef(null);
   const emojiPickerRef = useRef(null);
+  const pingIntervalRef = useRef(null);
+  const seenMessagesRef = useRef(new Set());
 
   const emojis = ['👍', '❤️', '😂', '😮', '😢', '🙏', '👏', '🔥'];
 
@@ -39,7 +42,7 @@ const ChatApp = () => {
 
   // Mark messages as seen when they appear in viewport
   useEffect(() => {
-    if (!connection || messages.length === 0) return;
+    if (!connection || messages.length === 0 || !isLoggedIn) return;
 
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
@@ -47,9 +50,12 @@ const ChatApp = () => {
           const messageId = entry.target.dataset.messageId;
           const messageUser = entry.target.dataset.messageUser;
           
-          if (messageId && messageUser && messageUser !== username) {
-            // This is the "seen" logic
-            connection.invoke('MarkMessageAsSeen', messageId, username).catch(err => console.error(err));
+          // Only mark messages from others that haven't been marked yet
+          if (messageId && messageUser && messageUser !== username && !seenMessagesRef.current.has(messageId)) {
+            seenMessagesRef.current.add(messageId);
+            connection.invoke('MarkMessageAsSeen', messageId, username).catch(err => 
+              console.error('Failed to mark message as seen:', err)
+            );
           }
         }
       });
@@ -59,19 +65,52 @@ const ChatApp = () => {
     messageElements.forEach(el => observer.observe(el));
 
     return () => observer.disconnect();
-  }, [messages, connection, username]);
+  }, [messages, connection, username, isLoggedIn]);
 
   const connectToHub = async (user) => {
     setIsConnecting(true);
+    setConnectionStatus('connecting');
+    
     try {
+      const deviceType = /Mobi|Android|iPhone/i.test(navigator.userAgent) ? 'mobile' : 'web';
+      
       const newConnection = new signalR.HubConnectionBuilder()
-        .withUrl(`https://localhost:7245/chatHub?username=${encodeURIComponent(user)}`)
-        .withAutomaticReconnect()
+        .withUrl(`https://localhost:7245/chatHub?username=${encodeURIComponent(user)}&deviceType=${deviceType}`)
+        .withAutomaticReconnect({
+          nextRetryDelayInMilliseconds: retryContext => {
+            // Exponential backoff: 0s, 2s, 10s, 30s
+            if (retryContext.elapsedMilliseconds < 60000) {
+              return Math.min(1000 * Math.pow(2, retryContext.previousRetryCount), 30000);
+            }
+            return null; // Stop retrying after 1 minute
+          }
+        })
+        .configureLogging(signalR.LogLevel.Information)
         .build();
 
+      // Connection lifecycle events
+      newConnection.onreconnecting(() => {
+        setConnectionStatus('reconnecting');
+        console.log('Reconnecting...');
+      });
+
+      newConnection.onreconnected(() => {
+        setConnectionStatus('connected');
+        console.log('Reconnected successfully');
+        fetchConnectedUsers();
+      });
+
+      newConnection.onclose((error) => {
+        setConnectionStatus('disconnected');
+        if (error) {
+          console.error('Connection closed with error:', error);
+        }
+      });
+
+      // Receive messages from others
       newConnection.on('ReceiveMessage', (fromUser, msg, messageId) => {
         setMessages(prev => [...prev, {
-          id: messageId || Date.now().toString() + Math.random(),
+          id: messageId,
           user: fromUser,
           text: msg,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -81,9 +120,10 @@ const ChatApp = () => {
         }]);
       });
 
+      // New user joined
       newConnection.on('NotifyNewUser', (newUser) => {
         setMessages(prev => [...prev, {
-          id: Date.now().toString(),
+          id: `system-${Date.now()}`,
           user: 'System',
           text: `${newUser} joined the chat`,
           isSystem: true,
@@ -91,9 +131,9 @@ const ChatApp = () => {
           reactions: {},
           seenBy: []
         }]);
-        fetchConnectedUsers();
       });
 
+      // Typing indicators
       newConnection.on('UserTyping', (typingUser) => {
         setTypingUsers(prev => {
           if (!prev.includes(typingUser)) {
@@ -107,7 +147,7 @@ const ChatApp = () => {
         setTypingUsers(prev => prev.filter(u => u !== stoppedUser));
       });
 
-      // This handles receiving reactions from other users
+      // Reactions
       newConnection.on('ReceiveReaction', (messageId, fromUser, emoji) => {
         setMessages(prev => prev.map(msg => {
           if (msg.id === messageId) {
@@ -123,7 +163,7 @@ const ChatApp = () => {
         }));
       });
 
-      // This is the client-side part of the "blue tick"
+      // Message seen status (blue ticks)
       newConnection.on('MessageSeen', (messageId, seenByUser) => {
         setMessages(prev => prev.map(msg => {
           if (msg.id === messageId) {
@@ -136,30 +176,39 @@ const ChatApp = () => {
         }));
       });
 
+      // Listen for the server's user list updates
+      newConnection.on('UpdateUserList', (users) => {
+        console.log('User list updated:', users);
+        setConnectedUsers(users.map((user, idx) => ({ 
+          username: user, 
+          // Use a stable key if possible, but this matches your old logic
+          connectionId: `${user}-${idx}` 
+        })));
+      });
+
       await newConnection.start();
       setConnection(newConnection);
-      await fetchConnectedUsers();
+      setConnectionStatus('connected');
       setIsConnecting(false);
+
+      // Setup heartbeat ping every 30 seconds
+      pingIntervalRef.current = setInterval(() => {
+        if (newConnection.state === signalR.HubConnectionState.Connected) {
+          newConnection.invoke('Ping').catch(err => console.error('Ping failed:', err));
+        }
+      }, 30000);
+
     } catch (err) {
       console.error('Failed to connect:', err);
-      alert('Failed to connect to chat server. Please check if the server is running.');
+      setConnectionStatus('disconnected');
       setIsConnecting(false);
-    }
-  };
-
-  const fetchConnectedUsers = async () => {
-    try {
-      const res = await fetch('https://localhost:7245/api/Chat/users');
-      const users = await res.json();
-      setConnectedUsers(users);
-    } catch (err) {
-      console.error('Failed to fetch users:', err);
+      alert('Failed to connect to chat server. Please check if the server is running on https://localhost:7245');
     }
   };
 
   const handleLogin = () => {
     if (username.trim()) {
-      connectToHub(username);
+      connectToHub(username.trim());
       setIsLoggedIn(true);
     }
   };
@@ -167,63 +216,75 @@ const ChatApp = () => {
   const handleSendMessage = async () => {
     if (!message.trim() || !connection) return;
     
-    // Create a unique ID on the client
-    const messageId = Date.now().toString() + '-' + Math.random().toString(36).substr(2, 9);
+    if (connection.state !== signalR.HubConnectionState.Connected) {
+      alert('Not connected to server. Please wait for reconnection.');
+      return;
+    }
+    
+    const messageId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const messageText = message.trim();
     
     try {
-      // Send the message and ID to the hub
-      await connection.invoke('SendMessage', username, message, messageId);
-      
-      // Optimistic update: Add message to sender's UI immediately
+      // Optimistic UI update
       setMessages(prev => [...prev, {
         id: messageId,
         user: username,
-        text: message,
+        text: messageText,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         reactions: {},
         seenBy: [],
-        isSent: true // 'isSent' marks it for the double-grey-tick
+        isSent: true
       }]);
+      
       setMessage('');
       handleStopTyping();
+      
+      // Send to server
+      await connection.invoke('SendMessage', username, messageText, messageId);
+      
     } catch (err) {
       console.error('Send failed:', err);
-      // You could add logic here to mark the message as 'failed'
+      // Mark message as failed
+      setMessages(prev => prev.map(msg => 
+        msg.id === messageId ? { ...msg, isSent: false, failed: true } : msg
+      ));
     }
   };
 
   const handleTyping = () => {
-    if (connection && username) {
-      connection.invoke('Typing', username).catch(err => console.error(err));
+    if (connection && username && connection.state === signalR.HubConnectionState.Connected) {
+      connection.invoke('Typing', username).catch(err => console.error('Typing notification failed:', err));
+      
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = setTimeout(() => handleStopTyping(), 2000);
     }
   };
 
   const handleStopTyping = () => {
-    if (connection && username) {
-      connection.invoke('StoppedTyping', username).catch(err => console.error(err));
+    if (connection && username && connection.state === signalR.HubConnectionState.Connected) {
+      connection.invoke('StoppedTyping', username).catch(err => console.error('Stop typing notification failed:', err));
+    }
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
     }
   };
 
   const handleReaction = async (messageId, emoji) => {
-    if (!connection) return;
+    if (!connection || connection.state !== signalR.HubConnectionState.Connected) return;
     
     const msg = messages.find(m => m.id === messageId);
     const currentReaction = msg?.reactions?.[username];
     
-    // If clicking the same emoji, remove it (toggle)
-    const newEmoji = currentReaction === emoji ? null : emoji;
+    // Toggle: if clicking same emoji, remove it
+    const newEmoji = currentReaction === emoji ? '' : emoji;
     
     try {
-      // Send reaction to the hub
-      await connection.invoke('ReactToMessage', messageId, username, newEmoji);
-      
-      // Optimistic update for the sender
+      // Optimistic update
       setMessages(prev => prev.map(m => {
         if (m.id === messageId) {
           const newReactions = { ...(m.reactions || {}) };
-          if (newEmoji === null) {
+          if (newEmoji === '') {
             delete newReactions[username];
           } else {
             newReactions[username] = newEmoji;
@@ -232,14 +293,37 @@ const ChatApp = () => {
         }
         return m;
       }));
+      
+      // Send to server
+      await connection.invoke('ReactToMessage', messageId, username, newEmoji);
+      
     } catch (err) {
       console.error('Reaction failed:', err);
+      // Revert on error
+      setMessages(prev => prev.map(m => {
+        if (m.id === messageId) {
+          const revertReactions = { ...(m.reactions || {}) };
+          if (currentReaction) {
+            revertReactions[username] = currentReaction;
+          } else {
+            delete revertReactions[username];
+          }
+          return { ...m, reactions: revertReactions };
+        }
+        return m;
+      }));
     }
     
     setShowEmojiPicker(null);
   };
 
   const handleDisconnect = async () => {
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+    }
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
     if (connection) {
       await connection.stop();
     }
@@ -248,51 +332,136 @@ const ChatApp = () => {
     setMessages([]);
     setConnectedUsers([]);
     setTypingUsers([]);
+    setConnectionStatus('disconnected');
+    seenMessagesRef.current.clear();
   };
 
-  // This function IS the "blue tick" logic
   const getReadReceiptIcon = (msg) => {
     if (msg.user !== username || msg.isSystem) return null;
     
-    // Check if message has been seen by any *other* user
+    if (msg.failed) {
+      return <span className="read-receipt failed" title="Failed to send">!</span>;
+    }
+    
     const seenByArray = Array.isArray(msg.seenBy) ? msg.seenBy : [];
     const seenByOthers = seenByArray.filter(u => u !== username).length > 0;
     
     if (seenByOthers) {
-      // Seen by recipient: Double BLUE tick
-      return <CheckCheck size={14} className="read-receipt blue" />;
+      return <CheckCheck size={14} className="read-receipt blue" title="Seen" />;
     } else if (msg.isSent) {
-      // Sent but not seen: Double GREY tick
-      return <CheckCheck size={14} className="read-receipt" />;
+      return <CheckCheck size={14} className="read-receipt grey" title="Delivered" />;
     } else {
-      // Sending (or failed): Single GREY tick
-      return <Check size={14} className="read-receipt" />;
+      return <Check size={14} className="read-receipt grey" title="Sending" />;
     }
   };
 
-  // Modern Login Screen
+  const getConnectionStatusBadge = () => {
+    const statusConfig = {
+      connected: { color: '#10b981', text: 'Connected' },
+      connecting: { color: '#f59e0b', text: 'Connecting...' },
+      reconnecting: { color: '#f59e0b', text: 'Reconnecting...' },
+      disconnected: { color: '#ef4444', text: 'Disconnected' }
+    };
+    
+    const config = statusConfig[connectionStatus] || statusConfig.disconnected;
+    
+    return (
+      <div className="connection-status" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{
+          width: '8px',
+          height: '8px',
+          borderRadius: '50%',
+          backgroundColor: config.color
+        }} />
+        <span style={{ fontSize: '12px', color: '#6b7280' }}>{config.text}</span>
+      </div>
+    );
+  };
+
+  // Login Screen
   if (!isLoggedIn) {
     return (
-      <div className="login-container">
-        <div className="login-card">
-          <div className="login-header">
-            <div className="logo-circle">💬</div>
-            <h1 className="login-title">Welcome to ChatApp</h1>
-            <p className="login-subtitle">Connect with your team instantly</p>
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        padding: '20px'
+      }}>
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '16px',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+          padding: '48px',
+          width: '100%',
+          maxWidth: '420px'
+        }}>
+          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+            <div style={{
+              width: '80px',
+              height: '80px',
+              margin: '0 auto 20px',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '36px'
+            }}>💬</div>
+            <h1 style={{
+              fontSize: '28px',
+              fontWeight: '700',
+              color: '#1f2937',
+              marginBottom: '8px'
+            }}>Welcome to ChatApp</h1>
+            <p style={{
+              fontSize: '14px',
+              color: '#6b7280'
+            }}>Connect with your team instantly</p>
           </div>
           <input
             type="text"
             placeholder="Enter your username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-            className="login-input"
+            onKeyPress={(e) => e.key === 'Enter' && !isConnecting && handleLogin()}
             disabled={isConnecting}
+            style={{
+              width: '100%',
+              padding: '14px 16px',
+              fontSize: '15px',
+              border: '2px solid #e5e7eb',
+              borderRadius: '8px',
+              marginBottom: '16px',
+              outline: 'none',
+              transition: 'border-color 0.2s',
+              boxSizing: 'border-box'
+            }}
+            onFocus={(e) => e.target.style.borderColor = '#667eea'}
+            onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
           />
           <button 
-            onClick={handleLogin} 
-            className="login-button"
+            onClick={handleLogin}
             disabled={isConnecting || !username.trim()}
+            style={{
+              width: '100%',
+              padding: '14px',
+              fontSize: '16px',
+              fontWeight: '600',
+              color: 'white',
+              background: username.trim() && !isConnecting ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#d1d5db',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: username.trim() && !isConnecting ? 'pointer' : 'not-allowed',
+              transition: 'transform 0.2s'
+            }}
+            onMouseEnter={(e) => {
+              if (username.trim() && !isConnecting) {
+                e.target.style.transform = 'translateY(-2px)';
+              }
+            }}
+            onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
           >
             {isConnecting ? 'Connecting...' : 'Join Chat'}
           </button>
@@ -303,67 +472,166 @@ const ChatApp = () => {
 
   // Main Chat UI
   return (
-    <div className="chat-container">
+    <div style={{
+      height: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      backgroundColor: '#f3f4f6',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+    }}>
       {/* Header */}
-      <div className="header">
-        <div className="header-left">
-          <div className="header-icon"></div>
+      <div style={{
+        backgroundColor: 'white',
+        borderBottom: '1px solid #e5e7eb',
+        padding: '16px 24px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '20px'
+          }}>💬</div>
           <div>
-            <h2 className="header-title">SignalR ChatApp</h2>
-            <p className="header-subtitle">Logged in as <strong>{username}</strong></p>
+            <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#1f2937', margin: 0 }}>
+              SignalR ChatApp
+            </h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+              <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
+                <strong>{username}</strong>
+              </p>
+              {getConnectionStatusBadge()}
+            </div>
           </div>
         </div>
-        <button onClick={handleDisconnect} className="logout-button">
+        <button 
+          onClick={handleDisconnect}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 16px',
+            backgroundColor: '#fee2e2',
+            color: '#dc2626',
+            border: 'none',
+            borderRadius: '6px',
+            fontSize: '14px',
+            fontWeight: '500',
+            cursor: 'pointer',
+            transition: 'background-color 0.2s'
+          }}
+          onMouseEnter={(e) => e.target.style.backgroundColor = '#fecaca'}
+          onMouseLeave={(e) => e.target.style.backgroundColor = '#fee2e2'}
+        >
           <LogOut size={16} />
           <span>Logout</span>
         </button>
       </div>
 
-      <div className="chat-body">
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Main Chat Area */}
-        <div className="chat-area">
-          <div className="messages-container">
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          {/* Messages */}
+          <div style={{
+            flex: 1,
+            overflowY: 'auto',
+            padding: '20px',
+            backgroundColor: '#f9fafb'
+          }}>
             {messages.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-icon">💭</div>
-                <p className="empty-text">No messages yet. Start the conversation!</p>
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
+                color: '#9ca3af'
+              }}>
+                <div style={{ fontSize: '64px', marginBottom: '16px' }}>💭</div>
+                <p style={{ fontSize: '16px' }}>No messages yet. Start the conversation!</p>
               </div>
             ) : (
               messages.map(msg => (
                 <div
                   key={msg.id}
-                  className="message-wrapper"
-                  data-message-id={msg.id} // Used by IntersectionObserver
-                  data-message-user={msg.user} // Used by IntersectionObserver
+                  data-message-id={msg.isSystem ? undefined : msg.id}
+                  data-message-user={msg.isSystem ? undefined : msg.user}
                   style={{
-                    justifyContent: msg.isSystem ? 'center' : mxsg.user === username ? 'flex-end' : 'flex-start'
+                    display: 'flex',
+                    justifyContent: msg.isSystem ? 'center' : msg.user === username ? 'flex-end' : 'flex-start',
+                    marginBottom: '16px'
                   }}
                 >
                   {msg.isSystem ? (
-                    <div className="system-message">{msg.text}</div>
+                    <div style={{
+                      padding: '6px 12px',
+                      backgroundColor: '#e5e7eb',
+                      color: '#6b7280',
+                      borderRadius: '12px',
+                      fontSize: '13px'
+                    }}>
+                      {msg.text}
+                    </div>
                   ) : (
-                    <div className="message-bubble-container">
-                      <div className={msg.user === username ? 'own-message' : 'other-message'}>
-                        <div className="message-header">
-                          <span className="message-user">{msg.user}</span>
-                          <span className="message-time">{msg.timestamp}</span>
+                    <div style={{ position: 'relative', maxWidth: '70%' }}>
+                      <div style={{
+                        backgroundColor: msg.user === username ? '#667eea' : 'white',
+                        color: msg.user === username ? 'white' : '#1f2937',
+                        padding: '12px 16px',
+                        borderRadius: '12px',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                      }}>
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          marginBottom: '4px',
+                          fontSize: '12px',
+                          opacity: 0.8
+                        }}>
+                          <span style={{ fontWeight: '600' }}>{msg.user}</span>
+                          <span>{msg.timestamp}</span>
                         </div>
-                        <div className="message-text">{msg.text}</div>
-                        <div className="message-footer">
+                        <div style={{ fontSize: '15px', lineHeight: '1.5', wordBreak: 'break-word' }}>
+                          {msg.text}
+                        </div>
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'flex-end',
+                          marginTop: '4px'
+                        }}>
                           {getReadReceiptIcon(msg)}
                         </div>
                       </div>
                       
-                      {/* Reactions Display: Aggregates multiple reactions */}
+                      {/* Reactions */}
                       {msg.reactions && Object.keys(msg.reactions).length > 0 && (
-                        <div className={`reactions-display ${msg.user === username ? 'own' : ''}`}>
+                        <div style={{
+                          position: 'absolute',
+                          bottom: '-8px',
+                          [msg.user === username ? 'right' : 'left']: '12px',
+                          display: 'flex',
+                          gap: '4px',
+                          backgroundColor: 'white',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                          fontSize: '12px'
+                        }}>
                           {Object.entries(
                             Object.values(msg.reactions).reduce((acc, emoji) => {
                               acc[emoji] = (acc[emoji] || 0) + 1;
                               return acc;
                             }, {})
                           ).map(([emoji, count]) => (
-                            <span key={emoji} className="reaction-count">
+                            <span key={emoji}>
                               {emoji} {count > 1 && count}
                             </span>
                           ))}
@@ -372,23 +640,63 @@ const ChatApp = () => {
                       
                       {/* Reaction Button */}
                       <button 
-                        className={`reaction-btn ${msg.user === username ? 'own' : ''}`}
                         onClick={() => setShowEmojiPicker(showEmojiPicker === msg.id ? null : msg.id)}
+                        style={{
+                          position: 'absolute',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          [msg.user === username ? 'left' : 'right']: '-32px',
+                          width: '24px',
+                          height: '24px',
+                          borderRadius: '50%',
+                          border: 'none',
+                          backgroundColor: '#f3f4f6',
+                          color: '#6b7280',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          opacity: 0.6,
+                          transition: 'opacity 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.target.style.opacity = 1}
+                        onMouseLeave={(e) => e.target.style.opacity = 0.6}
                       >
-                        <Smile size={16} />
+                        <Smile size={14} />
                       </button>
                       
                       {/* Emoji Picker */}
                       {showEmojiPicker === msg.id && (
                         <div 
-                          ref={emojiPickerRef}
-                          className={`emoji-picker ${msg.user === username ? 'own' : ''}`}
+                          ref={emojiPickerRef}
+                          style={{
+                            position: 'absolute',
+                            bottom: '-45px', // Changed from top
+                            [msg.user === username ? 'right' : 'left']: '8px', // Reversed logic and changed value
+                            backgroundColor: 'white',
+                            borderRadius: '24px',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                           padding: '8px 12px',
+                            display: 'flex',
+                            gap: '4px',
+                            zIndex: 10
+                          }}
                         >
                           {emojis.map(emoji => (
                             <button
                               key={emoji}
-                              className="emoji-btn"
                               onClick={() => handleReaction(msg.id, emoji)}
+                              style={{
+                                border: 'none',
+                                background: 'none',
+                                fontSize: '20px',
+                                cursor: 'pointer',
+                                padding: '4px',
+                                borderRadius: '4px',
+                                transition: 'transform 0.2s'
+                              }}
+                              onMouseEnter={(e) => e.target.style.transform = 'scale(1.3)'}
+                              onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
                             >
                               {emoji}
                             </button>
@@ -405,18 +713,42 @@ const ChatApp = () => {
 
           {/* Typing Indicator */}
           {typingUsers.length > 0 && (
-            <div className="typing-indicator">
-              <div className="typing-dots">
-                <span className="dot"></span>
-                <span className="dot"></span>
-                <span className="dot"></span>
+            <div style={{
+              padding: '8px 24px',
+              backgroundColor: '#f9fafb',
+              borderTop: '1px solid #e5e7eb',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '13px',
+              color: '#6b7280'
+            }}>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                {[0, 1, 2].map(i => (
+                  <div
+                    key={i}
+                    style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      backgroundColor: '#9ca3af',
+                      animation: `bounce 1.4s infinite ${i * 0.2}s`
+                    }}
+                  />
+                ))}
               </div>
-              <span>{typingUsers.join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing</span>
+              <span>{typingUsers.join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...</span>
             </div>
           )}
 
           {/* Input Area */}
-          <div className="input-area">
+          <div style={{
+            padding: '16px 24px',
+            backgroundColor: 'white',
+            borderTop: '1px solid #e5e7eb',
+            display: 'flex',
+            gap: '12px'
+          }}>
             <input
               type="text"
               value={message}
@@ -426,33 +758,204 @@ const ChatApp = () => {
               }}
               onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
               placeholder="Type your message..."
-              className="message-input"
+              disabled={connectionStatus !== 'connected'}
+              style={{
+                flex: 1,
+                padding: '12px 16px',
+                fontSize: '15px',
+                border: '1px solid #e5e7eb',
+                borderRadius: '24px',
+                outline: 'none',
+                backgroundColor: connectionStatus === 'connected' ? 'white' : '#f3f4f6'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#667eea'}
+              onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
             />
-            <button onClick={handleSendMessage} className="send-button">
+            <button 
+              onClick={handleSendMessage}
+              disabled={!message.trim() || connectionStatus !== 'connected'}
+              style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '50%',
+                border: 'none',
+                background: message.trim() && connectionStatus === 'connected' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#d1d5db',
+                color: 'white',
+                cursor: message.trim() && connectionStatus === 'connected' ? 'pointer' : 'not-allowed',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'transform 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                if (message.trim() && connectionStatus === 'connected') {
+                  e.target.style.transform = 'scale(1.1)';
+                }
+              }}
+              onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+            >
               <Send size={20} />
             </button>
           </div>
         </div>
 
-        {/* Sidebar (for responsiveness) */}
-        <div className="sidebar">
-          <div className="sidebar-header">
-            <Users size={20} />
-            <span className="sidebar-title">Online ({connectedUsers.length})</span>
+        {/* Sidebar */}
+        <div style={{
+          width: '280px',
+          backgroundColor: 'white',
+          borderLeft: '1px solid #e5e7eb',
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
+          <div style={{
+            padding: '16px',
+            borderBottom: '1px solid #e5e7eb',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <Users size={20} color="#667eea" />
+            <span style={{
+              fontSize: '16px',
+              fontWeight: '600',
+              color: '#1f2937'
+            }}>
+              Online ({connectedUsers.length})
+            </span>
           </div>
-          <div className="users-list">
-            {connectedUsers.map((user, idx) => (
-              <div key={idx} className="user-item">
-                <div className="avatar-circle">
-                  {user.charAt(0).toUpperCase()}
+          <div style={{
+            flex: 1,
+            overflowY: 'auto',
+            padding: '8px'
+          }}>
+            {connectedUsers.map((user) => (
+              <div 
+                key={user.connectionId}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  marginBottom: '4px',
+                  backgroundColor: user.username === username ? '#f3f4f6' : 'transparent',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  if (user.username !== username) {
+                    e.currentTarget.style.backgroundColor = '#f9fafb';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (user.username !== username) {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }
+                }}
+              >
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  flexShrink: 0
+                }}>
+                  {user.username.charAt(0).toUpperCase()}
                 </div>
-                <span className="user-name">{user}</span>
-                <div className="online-indicator"></div>
+                <span style={{
+                  flex: 1,
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#1f2937',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {user.username}
+                  {user.username === username && (
+                    <span style={{
+                      marginLeft: '6px',
+                      fontSize: '12px',
+                      color: '#6b7280',
+                      fontWeight: '400'
+                    }}>
+                      (You)
+                    </span>
+                  )}
+                </span>
+                <div style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  backgroundColor: '#10b981',
+                  flexShrink: 0
+                }} />
               </div>
             ))}
           </div>
         </div>
       </div>
+
+      {/* CSS Animations */}
+      <style>{`
+        @keyframes bounce {
+          0%, 80%, 100% {
+            transform: translateY(0);
+          }
+          40% {
+            transform: translateY(-8px);
+          }
+        }
+        
+        .read-receipt {
+          display: inline-block;
+        }
+        
+        .read-receipt.grey {
+          color: rgba(255, 255, 255, 0.6);
+        }
+        
+       .read-receipt.blue {
+          color: #33ff4b; /* Vibrant green for "seen" */
+        }
+        
+        .read-receipt.failed {
+          color: #ef4444;
+          font-size: 16px;
+          font-weight: bold;
+        }
+
+        /* Scrollbar styling */
+        *::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+        
+        *::-webkit-scrollbar-track {
+          background: #f3f4f6;
+        }
+        
+        *::-webkit-scrollbar-thumb {
+          background: #d1d5db;
+          border-radius: 4px;
+        }
+        
+        *::-webkit-scrollbar-thumb:hover {
+          background: #9ca3af;
+        }
+
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+          .sidebar {
+            display: none;
+          }
+        }
+      `}</style>
     </div>
   );
 };

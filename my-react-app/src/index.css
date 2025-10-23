@@ -259,7 +259,7 @@ body, html, #root {
 
 .system-message {
   background: rgba(102, 126, 234, 0.1);
-  color: #667eea;
+  color: #6271b4;
   padding: 8px 16px;
   border-radius: 16px;
   font-size: 13px;
@@ -327,7 +327,7 @@ body, html, #root {
   transition: all 0.3s ease;
 }
 .read-receipt.blue {
-  color: #4299e1;
+  color: #15a1ff;
   opacity: 1;
 }
 .own-message .read-receipt {
@@ -648,4 +648,18 @@ body, html, #root {
   .logout-button {
     padding: 10px;
   }
+}
+
+.connection-status {
+  font-size: 12px;
+  font-weight: 500;
+}
+.status-connected { color: #48bb78; }
+.status-connecting { color: #ed8936; }
+.status-reconnecting { color: #ed8936; }
+.status-disconnected { color: #f56565; }
+
+.read-receipt.failed {
+  color: #f56565;
+  font-weight: bold;
 }

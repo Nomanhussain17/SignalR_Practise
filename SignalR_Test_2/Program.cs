@@ -12,7 +12,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.WithOrigins("http://localhost:3002")
+        policy.WithOrigins("http://localhost:3001")
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials(); // REQUIRED for SignalR
