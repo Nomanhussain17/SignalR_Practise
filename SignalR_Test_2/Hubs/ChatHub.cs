@@ -189,7 +189,10 @@ namespace SignalR_Test_2.Hubs
                 // Broadcast to all except sender
                 await Clients.Others.ReceiveMessage(fromUser, message, messageId);
 
-                _logger.LogDebug("Message sent: {FromUser} - {MessageId}", fromUser, messageId);
+                // Send notification to all except sender
+                await Clients.Others.ReceiveNotification(fromUser, message, messageId);
+
+                _logger.LogDebug("Message sent: {FromUser} - {MessageId}", fromUser, messageId); 
             }
             catch (Exception ex)
             {

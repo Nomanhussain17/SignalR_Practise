@@ -12,9 +12,9 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.WithOrigins("http://localhost:3001")
+        policy.WithOrigins("http://localhost:3000")
               .AllowAnyMethod()
-              .AllowAnyHeader()
+              .AllowAnyHeader() 
               .AllowCredentials(); // REQUIRED for SignalR
     });
 });

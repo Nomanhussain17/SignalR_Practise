@@ -7,24 +7,24 @@
       "RelativeMoniker": "D:0:0:{DF63C46A-7A8D-4540-85D0-9600CB9A02DC}|SignalR_Test_2\\SignalR_Test_2.csproj|solutionrelative:signalr_test_2\\hubs\\chathub.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{DF63C46A-7A8D-4540-85D0-9600CB9A02DC}|SignalR_Test_2\\SignalR_Test_2.csproj|c:\\users\\_syed\\desktop\\signalr_test_2\\signalr_test_2\\dtos\\userconnection.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{DF63C46A-7A8D-4540-85D0-9600CB9A02DC}|SignalR_Test_2\\SignalR_Test_2.csproj|solutionrelative:signalr_test_2\\dtos\\userconnection.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{DF63C46A-7A8D-4540-85D0-9600CB9A02DC}|SignalR_Test_2\\SignalR_Test_2.csproj|c:\\users\\_syed\\desktop\\signalr_test_2\\signalr_test_2\\interface\\ichatclient.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{DF63C46A-7A8D-4540-85D0-9600CB9A02DC}|SignalR_Test_2\\SignalR_Test_2.csproj|solutionrelative:signalr_test_2\\interface\\ichatclient.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{DF63C46A-7A8D-4540-85D0-9600CB9A02DC}|SignalR_Test_2\\SignalR_Test_2.csproj|c:\\users\\_syed\\desktop\\signalr_test_2\\signalr_test_2\\controllers\\chatcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{DF63C46A-7A8D-4540-85D0-9600CB9A02DC}|SignalR_Test_2\\SignalR_Test_2.csproj|solutionrelative:signalr_test_2\\controllers\\chatcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{DF63C46A-7A8D-4540-85D0-9600CB9A02DC}|SignalR_Test_2\\SignalR_Test_2.csproj|c:\\users\\_syed\\desktop\\signalr_test_2\\signalr_test_2\\models\\models.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{DF63C46A-7A8D-4540-85D0-9600CB9A02DC}|SignalR_Test_2\\SignalR_Test_2.csproj|solutionrelative:signalr_test_2\\models\\models.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{DF63C46A-7A8D-4540-85D0-9600CB9A02DC}|SignalR_Test_2\\SignalR_Test_2.csproj|c:\\users\\_syed\\desktop\\signalr_test_2\\signalr_test_2\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{DF63C46A-7A8D-4540-85D0-9600CB9A02DC}|SignalR_Test_2\\SignalR_Test_2.csproj|solutionrelative:signalr_test_2\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{DF63C46A-7A8D-4540-85D0-9600CB9A02DC}|SignalR_Test_2\\SignalR_Test_2.csproj|c:\\users\\_syed\\desktop\\signalr_test_2\\signalr_test_2\\controllers\\chatcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{DF63C46A-7A8D-4540-85D0-9600CB9A02DC}|SignalR_Test_2\\SignalR_Test_2.csproj|solutionrelative:signalr_test_2\\controllers\\chatcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{DF63C46A-7A8D-4540-85D0-9600CB9A02DC}|SignalR_Test_2\\SignalR_Test_2.csproj|c:\\users\\_syed\\desktop\\signalr_test_2\\signalr_test_2\\dtos\\userconnection.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{DF63C46A-7A8D-4540-85D0-9600CB9A02DC}|SignalR_Test_2\\SignalR_Test_2.csproj|solutionrelative:signalr_test_2\\dtos\\userconnection.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{DF63C46A-7A8D-4540-85D0-9600CB9A02DC}|SignalR_Test_2\\SignalR_Test_2.csproj|c:\\users\\_syed\\desktop\\signalr_test_2\\signalr_test_2\\interface\\ichatclient.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{DF63C46A-7A8D-4540-85D0-9600CB9A02DC}|SignalR_Test_2\\SignalR_Test_2.csproj|solutionrelative:signalr_test_2\\interface\\ichatclient.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{DF63C46A-7A8D-4540-85D0-9600CB9A02DC}|SignalR_Test_2\\SignalR_Test_2.csproj|c:\\users\\_syed\\desktop\\signalr_test_2\\signalr_test_2\\signalr_test_2.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
@@ -42,26 +42,26 @@
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 4,
               "Title": "UserConnection.cs",
               "DocumentMoniker": "C:\\Users\\_SYED\\Desktop\\SignalR_Test_2\\SignalR_Test_2\\Dtos\\UserConnection.cs",
               "RelativeDocumentMoniker": "SignalR_Test_2\\Dtos\\UserConnection.cs",
               "ToolTip": "C:\\Users\\_SYED\\Desktop\\SignalR_Test_2\\SignalR_Test_2\\Dtos\\UserConnection.cs",
               "RelativeToolTip": "SignalR_Test_2\\Dtos\\UserConnection.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAkAAAAFAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-10-23T10:20:08.214Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 5,
               "Title": "IChatClient.cs",
               "DocumentMoniker": "C:\\Users\\_SYED\\Desktop\\SignalR_Test_2\\SignalR_Test_2\\Interface\\IChatClient.cs",
               "RelativeDocumentMoniker": "SignalR_Test_2\\Interface\\IChatClient.cs",
               "ToolTip": "C:\\Users\\_SYED\\Desktop\\SignalR_Test_2\\SignalR_Test_2\\Interface\\IChatClient.cs",
               "RelativeToolTip": "SignalR_Test_2\\Interface\\IChatClient.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAA0AAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAA4AAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-10-20T12:54:06.311Z",
               "EditorCaption": ""
@@ -74,7 +74,7 @@
               "RelativeDocumentMoniker": "SignalR_Test_2\\Controllers\\ChatController.cs",
               "ToolTip": "C:\\Users\\_SYED\\Desktop\\SignalR_Test_2\\SignalR_Test_2\\Controllers\\ChatController.cs",
               "RelativeToolTip": "SignalR_Test_2\\Controllers\\ChatController.cs",
-              "ViewState": "AgIAABoAAAAAAAAAAAAqwCsAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAABEAAAAAAAAAAAAAACQAAAAgAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-10-20T07:34:18.482Z",
               "EditorCaption": ""
@@ -87,7 +87,7 @@
               "RelativeDocumentMoniker": "SignalR_Test_2\\Hubs\\ChatHub.cs",
               "ToolTip": "C:\\Users\\_SYED\\Desktop\\SignalR_Test_2\\SignalR_Test_2\\Hubs\\ChatHub.cs",
               "RelativeToolTip": "SignalR_Test_2\\Hubs\\ChatHub.cs",
-              "ViewState": "AgIAABYBAAAAAAAAAAAIwCcBAABfAAAAAAAAAA==",
+              "ViewState": "AgIAADgAAAAAAAAAAADwv00AAAAlAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-10-20T07:29:48.79Z",
               "EditorCaption": ""
@@ -106,20 +106,20 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 2,
               "Title": "Program.cs",
               "DocumentMoniker": "C:\\Users\\_SYED\\Desktop\\SignalR_Test_2\\SignalR_Test_2\\Program.cs",
               "RelativeDocumentMoniker": "SignalR_Test_2\\Program.cs",
               "ToolTip": "C:\\Users\\_SYED\\Desktop\\SignalR_Test_2\\SignalR_Test_2\\Program.cs",
               "RelativeToolTip": "SignalR_Test_2\\Program.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAA4AAAAxAAAAAAAAAA==",
+              "ViewState": "AgIAAAcAAAAAAAAAAAAiwC0AAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-10-20T07:34:53.655Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 1,
               "Title": "Models.cs",
               "DocumentMoniker": "C:\\Users\\_SYED\\Desktop\\SignalR_Test_2\\SignalR_Test_2\\Models\\Models.cs",
               "RelativeDocumentMoniker": "SignalR_Test_2\\Models\\Models.cs",

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import * as signalR from '@microsoft/signalr';
-import { Send, Users, LogOut, Smile, Check, CheckCheck } from 'lucide-react';
+import { Send, Users, LogOut, Smile, Check, CheckCheck, Bell } from 'lucide-react';
 
 const ChatApp = () => {
   const [username, setUsername] = useState('');
@@ -13,6 +13,8 @@ const ChatApp = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [showEmojiPicker, setShowEmojiPicker] = useState(null);
+  const [hasNewNotification, setHasNewNotification] = useState(false);
+  
   const typingTimeoutRef = useRef(null);
   const messagesEndRef = useRef(null);
   const emojiPickerRef = useRef(null);
@@ -70,6 +72,10 @@ const ChatApp = () => {
   const connectToHub = async (user) => {
     setIsConnecting(true);
     setConnectionStatus('connecting');
+
+    if (Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
     
     try {
       const deviceType = /Mobi|Android|iPhone/i.test(navigator.userAgent) ? 'mobile' : 'web';
@@ -118,6 +124,19 @@ const ChatApp = () => {
           seenBy: [],
           isSent: true
         }]);
+      });
+
+      newConnection.on('ReceiveNotification', (fromUser, message, messageId) => {
+        setHasNewNotification(true);
+
+        // Show browser notification if tab is not active
+        if (document.hidden && Notification.permission === 'granted') {
+          new Notification('New Message', {
+            body: `${fromUser}: ${message.substring(0, 50)}${message.length > 50 ? '...' : ''}`,
+            // You can add an icon path here if you have one
+            // icon: '/chat-icon.png' 
+          });
+        }
       });
 
       // New user joined
@@ -211,6 +230,14 @@ const ChatApp = () => {
       connectToHub(username.trim());
       setIsLoggedIn(true);
     }
+  };
+
+  // --- ADDED: Bell click handler ---
+  const handleBellClick = () => {
+    setHasNewNotification(false);
+    // Optional: focus the window/tab and scroll to messages
+    window.focus();
+    scrollToBottom();
   };
 
   const handleSendMessage = async () => {
@@ -328,6 +355,7 @@ const ChatApp = () => {
       await connection.stop();
     }
     setIsLoggedIn(false);
+    setHasNewNotification(false); // Reset on logout
     setUsername('');
     setMessages([]);
     setConnectedUsers([]);
@@ -338,7 +366,7 @@ const ChatApp = () => {
 
   const getReadReceiptIcon = (msg) => {
     if (msg.user !== username || msg.isSystem) return null;
-    
+
     if (msg.failed) {
       return <span className="read-receipt failed" title="Failed to send">!</span>;
     }
@@ -510,6 +538,38 @@ const ChatApp = () => {
               {getConnectionStatusBadge()}
             </div>
           </div>
+
+{/* --- MODIFIED: Added Bell Icon --- */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <button
+            onClick={handleBellClick}
+            style={{
+              position: 'relative',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: '#6b7280',
+            }}
+            title="Notifications"
+          >
+            <Bell size={22} />
+            {hasNewNotification && (
+              <div style={{
+                position: 'absolute',
+                top: '-2px',
+                right: '-2px',
+                width: '10px',
+                height: '10px',
+                backgroundColor: '#10b981',
+                borderRadius: '50%',
+                border: '2px solid white',
+              }} />
+            )}
+          </button>
+          
+        </div>
+        {/* --- END MODIFICATION --- */}
+
         </div>
         <button 
           onClick={handleDisconnect}
@@ -731,7 +791,7 @@ const ChatApp = () => {
                       width: '6px',
                       height: '6px',
                       borderRadius: '50%',
-                      backgroundColor: '#9ca3af',
+                      backgroundColor: '#6f7275ff',
                       animation: `bounce 1.4s infinite ${i * 0.2}s`
                     }}
                   />
